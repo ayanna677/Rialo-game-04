@@ -593,4 +593,51 @@
       const step = 2; // keyboard step
       let v = Number(slider.value);
       if (ev.key === 'ArrowRight' || ev.key === 'ArrowUp') { v = Math.min(100, v + step); slider.value = v; updateVisuals(v); tryPlaySound(switchSound); }
-      if (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown') { v = Math.max(0, v - step); slider.value = v; update
+      if (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown') { v = Math.max(0, v - step); slider.value = v; updateVisuals(v); tryPlaySound(switchSound); }
+    });
+
+    /* initial visual state (lamp off) */
+    updateVisuals(Number(slider.value));
+
+    /* Prevent background audio from continuing when tab is hidden (politeness) */
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && bgmStarted) {
+        // optional: pause bgm when tab hidden
+        try { bgm.pause(); } catch(e){}
+      } else if (!document.hidden && bgmStarted) {
+        try { bgm.play().catch(()=>{}); } catch(e){}
+      }
+    });
+
+    /* ============================================================
+       Optional: Smoothly persist slider position in session storage
+       - Keeps the state if user accidentally refreshes (nice to have)
+       ============================================================ */
+    const STORAGE_KEY = 'rialo_lamp_brightness_v1';
+    // load saved
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved !== null) {
+        const n = Number(saved);
+        slider.value = Math.max(0, Math.min(100, n));
+        updateVisuals(n);
+        lastValue = n;
+      }
+    } catch(e){ /* ignore storage errors */ }
+
+    // save on change (debounced)
+    let saveTimer = null;
+    slider.addEventListener('input', () => {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        try { sessionStorage.setItem(STORAGE_KEY, String(slider.value)); } catch(e){}
+      }, 250);
+    });
+
+    /* ============================================================
+       End of JavaScript
+       ============================================================ */
+  </script>
+</body>
+</html>
+
