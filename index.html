@@ -1,197 +1,596 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lamp Slider with Logo & Effects</title>
-<style>
-  body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    text-align: center;
-    overflow: hidden;
-    height: 100vh;
-    background: linear-gradient(180deg, #0a0a0a, #1a1a1a);
-    background-size: 400% 400%;
-    animation: bgShift 15s ease infinite;
-    color: #fff;
-  }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rialo Lamp — Interactive</title>
 
-  @keyframes bgShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
+  <!--
+    Full-featured Lamp Slider Control
+    - No page title text at top (clean look)
+    - Centered lamp, slider, logo
+    - Logo + "Rialo" appear only when brightness increases
+    - Animated background (slow breathing gradient)
+    - Background music (auto-play when lamp turns on)
+    - Slider sound effect on changes
+    - Smooth animations, drop-shadows and glow
+    - Well-commented, easy to extend
+  -->
 
-  h1 {
-    margin-top: 20px;
-    color: #ffdd00;
-    text-shadow: 0 0 10px #ffdd00;
-  }
+  <style>
+    /* ==========================================================================
+       Base / Layout
+       ========================================================================== */
+    :root{
+      /* tweakable theme colors */
+      --bg-dark-1: #060608;
+      --bg-dark-2: #141217;
+      --accent: #ffd84d;      /* warm lamp accent */
+      --accent-strong: #ffc700;
+      --lamp-inner: rgba(255,245,200,0.95);
+      --lamp-mid: rgba(200,160,60,0.12);
+      --glass: rgba(255,255,255,0.02);
+    }
 
-  .lamp-container {
-    position: relative;
-    width: 200px;
-    height: 250px;
-    margin: 40px auto;
-  }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .lamp {
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle at top, #ffff99 0%, #333 70%);
-    border-radius: 50% 50% 45% 45%;
-    box-shadow: 0 0 30px 10px rgba(255, 255, 150, 0.3);
-    transition: box-shadow 0.3s, background 0.3s;
-    position: absolute;
-    top: 0;
-    left: 0;
-    animation: subtlePulse 3s ease-in-out infinite;
-  }
+/* full viewport centered container */
+    html,body{
+      height: 100%;
+      width: 100%;
+    }
 
-  @keyframes subtlePulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-    100% { transform: scale(1); }
-  }
+    body{
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg,var(--bg-dark-1), var(--bg-dark-2));
+      color: white;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
 
-  .lamp-logo {
-    position: absolute;
-    top: 30%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100px;
-    opacity: 0;
-    transition: opacity 0.5s ease-in-out, filter 0.3s;
-    pointer-events: none;
-  }
+    /* ==========================================================================
+       Animated background "breathing" gradient
+       ========================================================================== */
+    /* Large layered gradient with slow animation */
+    .animated-bg {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background: radial-gradient( circle at 10% 20%,
+        rgba(30,18,60,0.35) 0%,
+        transparent 20%),
+        radial-gradient( circle at 90% 80%,
+        rgba(20,60,40,0.20) 0%,
+        transparent 18%),
+        linear-gradient(180deg, var(--bg-dark-1), var(--bg-dark-2));
+      background-size: 200% 200%;
+      animation: bg-breathe 20s ease-in-out infinite;
+      filter: blur(6px) saturate(110%);
+    }
 
-  .lamp-name {
-    margin-top: 280px;
-    font-size: 1.8em;
-    font-weight: bold;
-    color: #ffdd00;
-    opacity: 0;
-    text-shadow: 0 0 10px #ffdd00;
-    transition: opacity 0.5s ease-in-out;
-  }
+    @keyframes bg-breathe{
+      0% { background-position: 0% 50%, 0% 50%, 0% 0%; }
+      50% { background-position: 100% 50%, 100% 50%, 0% 100%; }
+      100% { background-position: 0% 50%, 0% 50%, 0% 0%; }
+    }
 
-  .lamp-name.pulse {
-    animation: textPulse 2s infinite;
-  }
+    /* subtle vignette overlay */
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background-image: radial-gradient( circle at 50% 40%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.45) 100% );
+      mix-blend-mode: multiply;
+    }
 
-  @keyframes textPulse {
-    0%, 100% { text-shadow: 0 0 10px #ffdd00, 0 0 20px #ffbb00; }
-    50% { text-shadow: 0 0 20px #fff200, 0 0 30px #ffaa00; }
-  }
+    /* ==========================================================================
+       Central card (keeps lamp + controls centered and tidy)
+       ========================================================================== */
+    .card {
+      width: min(720px, 92vw);
+      max-width: 720px;
+      padding: 26px;
+      border-radius: 18px;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-auto-rows: min-content;
+      gap: 18px;
+      justify-items: center;
+      align-items: center;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      box-shadow:
+        0 8px 30px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.03);
+      backdrop-filter: blur(6px) saturate(120%);
+    }
 
-  .slider-container {
-    margin-top: 40px;
-  }
+    /* ==========================================================================
+       Lamp container & artwork
+       ========================================================================== */
+    .center-block {
+      width: 100%;
+      display:flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 8px 8px 8px;
+    }
 
-  input[type=range] {
-    width: 300px;
-    height: 10px;
-    -webkit-appearance: none;
-    background: #444;
-    border-radius: 5px;
-    outline: none;
-  }
+    .lamp-wrap {
+      position: relative;
+      width: 240px;
+      height: 300px;
+      display: grid;
+      place-items: center;
+      margin-top: 10px;
+    }
 
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 25px;
-    height: 25px;
-    background: #ffdd00;
-    cursor: pointer;
-    border-radius: 50%;
-    box-shadow: 0 0 5px #ffdd00;
-    transition: background 0.2s;
-  }
+    /* "glass" lamp body */
+    .lamp {
+      width: 100%;
+      height: 85%;
+      border-radius: 50% 50% 38% 38% / 50% 50% 20% 20%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: block;
+      overflow: visible;
+      transform-origin: center top;
+      /* base fill that will be tinted by JS */
+      background: radial-gradient(circle at top, rgba(255,255,200,0.07) 0%, rgba(60,40,20,0.08) 50%, rgba(18,18,18,0.9) 100%);
+      border: 1px solid rgba(255,255,255,0.03);
+      box-shadow:
+        0 12px 60px rgba(255,200,60,0.06),
+        inset 0 -30px 60px rgba(0,0,0,0.6);
+      transition: background 420ms ease, box-shadow 420ms ease, transform 420ms ease;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 22%;
+    }
 
-  input[type=range]::-moz-range-thumb {
-    width: 25px;
-    height: 25px;
-    background: #ffdd00;
-    cursor: pointer;
-    border-radius: 50%;
-    box-shadow: 0 0 5px #ffdd00;
-  }
-</style>
+    /* inner glow layer that will be scaled with brightness */
+    .inner-glow {
+      position: absolute;
+      width: 76%;
+      height: 60%;
+      border-radius: 50%;
+      top: 8%;
+      left: 12%;
+      transform: translateY(0);
+      pointer-events: none;
+      background: radial-gradient(circle at center, var(--lamp-inner) 0%, transparent 60%);
+      filter: blur(12px);
+      transition: opacity 200ms ease, transform 200ms ease, filter 200ms ease;
+      opacity: 0.12;
+    }
+
+    /* small highlight / glass sheen */
+    .sheen {
+      position: absolute;
+      top: 8%;
+      left: 18%;
+      width: 22%;
+      height: 28%;
+      border-radius: 50%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.02));
+      filter: blur(0.6px);
+      transform: rotate(-18deg);
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    /* lamp base stand */
+    .lamp-stand {
+      position: absolute;
+      bottom: -6%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 56%;
+      height: 18%;
+      background: linear-gradient(180deg,#222,#111);
+      border-radius: 8px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.6), inset 0 -6px 12px rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+
+    /* ==========================================================================
+       Logo & Name (appear together when brightness > 0)
+       ========================================================================== */
+    .logo-block {
+      position: absolute;
+      top: 42%;
+      left: 50%;
+      transform: translate(-50%,-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 6;
+    }
+
+    .logo-img {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      border-radius: 8px;
+      opacity: 0;
+      transform: scale(0.88) translateY(6px);
+      transition: opacity 360ms cubic-bezier(.2,.9,.3,1), transform 360ms cubic-bezier(.2,.9,.3,1), filter 360ms;
+      filter: drop-shadow(0 0 0 rgba(255,200,90,0));
+    }
+
+    .brand-name {
+      margin-top: 6px;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: 0.6px;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 360ms ease, transform 360ms ease, text-shadow 360ms ease;
+    }
+
+    .logo-visible .logo-img {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+
+    .logo-visible .brand-name {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* pulsing effect when very bright */
+    .brand-name.pulse {
+      animation: brandPulse 1.8s infinite;
+      text-shadow: 0 0 10px rgba(255,215,90,0.8), 0 0 26px rgba(255,170,60,0.35);
+    }
+
+    @keyframes brandPulse {
+      0% { transform: translateY(0); opacity: 1; }
+      50% { transform: translateY(-3px); opacity: 0.98; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ==========================================================================
+       Slider (control)
+       ========================================================================== */
+    .controls {
+      width: 100%;
+      display:flex;
+      justify-content:center;
+      padding: 8px 4px 20px 4px;
+    }
+
+    .slider {
+      width: min(420px,86%);
+      display:block;
+    }
+
+    input[type="range"]{
+      -webkit-appearance: none;
+      appearance: none;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      outline: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+      box-shadow: 0 6px 20px rgba(255,170,40,0.18), 0 0 8px rgba(255,200,80,0.08);
+      border: 2px solid rgba(255,255,255,0.06);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+      box-shadow: 0 6px 20px rgba(255,170,40,0.18);
+      border: 2px solid rgba(255,255,255,0.06);
+      cursor: pointer;
+    }
+
+    /* slider track progress coloring via pseudo element wrapper */
+    .slider-track {
+      width: 100%;
+      height: 10px;
+      position: relative;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .slider-progress {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(255,220,100,0.28), rgba(255,150,60,0.28));
+      box-shadow: 0 4px 18px rgba(255,160,50,0.06);
+      border-radius: 999px;
+      transition: width 160ms linear;
+    }
+
+    /* ==========================================================================
+       Footer tiny helpers
+       ========================================================================== */
+    .hint {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 6px;
+    }
+
+    @media (max-width:520px){
+      .lamp-wrap { width: 200px; height: 260px; }
+      .lamp { padding-top: 26%; }
+      .logo-img { width: 96px; height: 96px; }
+    }
+
+  </style>
 </head>
+
 <body>
+  <!-- animated background elements -->
+  <div class="animated-bg"></div>
+  <div class="vignette"></div>
 
-<h1>Lamp Brightness Control</h1>
+  <!-- central card -->
+  <main class="card" role="main" aria-label="Rialo Lamp Control">
 
-<div class="lamp-container">
-  <div class="lamp" id="lamp"></div>
-  <img class="lamp-logo" id="lampLogo"
-    src="https://i.postimg.cc/rF4jC3sw/20250926-105225.jpg"
-    alt="Rialo Logo">
-</div>
+    <!-- center block contains the lamp and logo -->
+    <section class="center-block" aria-hidden="false">
 
-<div class="lamp-name" id="lampName">Rialo</div>
+      <!-- Lamp visual -->
+      <figure class="lamp-wrap" aria-hidden="true">
+        <!-- inner-glow is tinted by JS based on slider -->
+        <div class="lamp" id="lamp">
+          <div class="inner-glow" id="innerGlow" aria-hidden="true"></div>
+          <div class="sheen" aria-hidden="true"></div>
+          <div class="logo-block" id="logoBlock" aria-hidden="true">
+            <!-- user logo (direct link provided earlier) -->
+            <img class="logo-img" id="logoImg" src="https://i.postimg.cc/rF4jC3sw/20250926-105225.jpg" alt="Rialo logo">
+            <div class="brand-name" id="brandName">Rialo</div>
+          </div>
+        </div>
 
-<div class="slider-container">
-  <input type="range" id="lampSlider" min="0" max="100" value="0">
-</div>
+        <!-- base stand -->
+        <div class="lamp-stand" aria-hidden="true"></div>
+      </figure>
 
-<!-- Background Music -->
-<audio id="bgm" loop>
-  <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
-</audio>
+      <!-- hint below lamp -->
+      <div class="hint" id="hint">Slide to increase brightness</div>
 
-<!-- Sound Effect -->
-<audio id="switchSound">
-  <source src="https://actions.google.com/sounds/v1/foley/light_switch_on.ogg" type="audio/ogg">
-</audio>
+    </section>
 
-<script>
-  const lamp = document.getElementById("lamp");
-  const slider = document.getElementById("lampSlider");
-  const logo = document.getElementById("lampLogo");
-  const nameElem = document.getElementById("lampName");
-  const bgm = document.getElementById("bgm");
-  const switchSound = document.getElementById("switchSound");
+    <!-- controls section -->
+    <section class="controls" aria-label="Brightness control">
+      <div style="width:100%; max-width:720px;">
+        <div class="slider-track" aria-hidden="true">
+          <div class="slider-progress" id="progressBar"></div>
+        </div>
 
-  let bgmPlaying = false;
+        <!-- native range input sits on top for accessibility -->
+        <input type="range" id="lampSlider" class="slider" min="0" max="100" value="0" aria-label="Lamp brightness slider" />
+      </div>
+    </section>
 
-  slider.addEventListener("input", () => {
-    const value = slider.value;
+    <!-- small footer -->
+    <footer style="width:100%; text-align:center;">
+      <div class="hint">Click and drag the knob or tap to change brightness</div>
+    </footer>
+  </main>
 
-    // Lamp glow
-    lamp.style.boxShadow =
-      `0 0 ${value/2}px ${value/4}px rgba(255, 255, 150, ${value/100})`;
-    lamp.style.background =
-      `radial-gradient(circle at top, rgba(255,255,153, ${value/100}) 0%, #333 70%)`;
+  <!-- ===========================
+       Audio assets (external sources)
+       Notes:
+       - BGM used from SoundHelix (example) - large file; auto-play is triggered via interaction
+       - Switch sound is a short on/off foley from public actions.google.com sounds
+       ============================ -->
+  <audio id="bgm" loop preload="none">
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+  </audio>
 
-    // Logo & name fade in
-    logo.style.opacity = value / 100;
-    logo.style.filter = `drop-shadow(0 0 ${value/3}px #ffdd00)`;
-    nameElem.style.opacity = value / 100;
+  <audio id="switchSound" preload="auto">
+    <source src="https://actions.google.com/sounds/v1/foley/light_switch_on.ogg" type="audio/ogg">
+  </audio>
 
-    if (value > 70) {
-      nameElem.classList.add("pulse");
-    } else {
-      nameElem.classList.remove("pulse");
+  <audio id="faintClick" preload="auto">
+    <source src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" type="audio/ogg">
+  </audio>
+
+  <!-- ===========================
+       JavaScript - Behavior
+       ============================ -->
+  <script>
+    /* ============================================================
+       Elements & initial state
+       ============================================================ */
+    const slider = document.getElementById('lampSlider');
+    const lamp = document.getElementById('lamp');
+    const innerGlow = document.getElementById('innerGlow');
+    const logoImg = document.getElementById('logoImg');
+    const brandName = document.getElementById('brandName');
+    const logoBlock = document.getElementById('logoBlock');
+    const hint = document.getElementById('hint');
+    const progressBar = document.getElementById('progressBar');
+
+    const bgm = document.getElementById('bgm');
+    const switchSound = document.getElementById('switchSound');
+    const faintClick = document.getElementById('faintClick');
+
+    let bgmStarted = false;   // ensure bgm only plays after user-trigger
+    let lastValue = parseInt(slider.value, 10);
+
+    /* ============================================================
+       Utility helpers
+       ============================================================ */
+
+    /**
+     * Linear interpolate between a and b
+     * @param {number} a
+     * @param {number} b
+     * @param {number} t - 0..1
+     */
+    function lerp(a,b,t){
+      return a + (b-a)*t;
     }
 
-    // Play switch sound
-    switchSound.currentTime = 0;
-    switchSound.play();
-
-    // Auto-play background music when lamp is on
-    if (value > 0 && !bgmPlaying) {
-      bgm.play();
-      bgmPlaying = true;
+    /**
+     * Map value from range [inMin,inMax] to [outMin,outMax]
+     */
+    function mapRange(val, inMin, inMax, outMin, outMax){
+      const t = (val - inMin) / (inMax - inMin);
+      return outMin + (outMax - outMin) * Math.max(0, Math.min(1, t));
     }
-    if (value == 0 && bgmPlaying) {
-      bgm.pause();
-      bgmPlaying = false;
-    }
-  });
-</script>
 
-</body>
-</html>
+    /**
+     * Play a short sound safely (catch errors; mobile autoplay restrictions)
+     */
+    function tryPlaySound(audioElem){
+      if (!audioElem) return;
+      audioElem.currentTime = 0;
+      audioElem.play().catch((e)=>{
+        // ignore play errors (common on mobile before interaction)
+        // console.log('sound play prevented', e);
+      });
+    }
+
+    /* ============================================================
+       Visual update function
+       - central place that updates lamp glow, logo opacity, progress bar
+       ============================================================ */
+    function updateVisuals(value){
+      // value expected 0..100 (int or float)
+      const norm = Math.max(0,Math.min(100, Number(value)));
+
+      // progress bar width
+      progressBar.style.width = `${norm}%`;
+
+      // inner glow intensity, scale, and blur
+      const glowOpacity = mapRange(norm, 0, 100, 0.06, 0.95);
+      const glowScale = mapRange(norm, 0, 100, 0.75, 1.12);
+      const glowBlur = mapRange(norm, 0, 100, 6, 42);
+
+      innerGlow.style.opacity = glowOpacity.toFixed(3);
+      innerGlow.style.transform = `scale(${glowScale}) translateY(${mapRange(norm,0,100,6,-6)}px)`;
+      innerGlow.style.filter = `blur(${glowBlur}px)`;
+
+      // lamp base color shift (subtle warm tint when brighter)
+      const warmStrength = mapRange(norm, 0, 100, 0, 0.55);
+      lamp.style.background = `radial-gradient(circle at 50% 18%,
+          rgba(255,245,180, ${mapRange(norm,0,100,0.02,0.95)}) 0%,
+          rgba(130,90,35, ${mapRange(norm,0,100,0.03,0.12)}) 40%,
+          rgba(18,18,18, ${mapRange(norm,0,100,0.95,0.88)}) 100%)`;
+
+      // overall outer glow shadow (lamp box-shadow)
+      const outerBlur = mapRange(norm, 0, 100, 18, 120);
+      const outerSpread = mapRange(norm, 0, 100, 6, 34);
+      const outerAlpha = mapRange(norm, 0, 100, 0.02, 0.44);
+      lamp.style.boxShadow = `0 ${mapRange(norm,0,100,8,36)}px ${outerBlur}px ${outerSpread}px rgba(255,200,70, ${outerAlpha})`;
+
+      // logo visibility & filter
+      if (norm > 4) {
+        // show logo block (applies css class)
+        logoBlock.classList.add('logo-visible');
+      } else {
+        logoBlock.classList.remove('logo-visible');
+      }
+
+      // logo drop shadow intensity
+      const logoDrop = mapRange(norm, 0, 100, 0, 18);
+      logoImg.style.filter = `drop-shadow(0 0 ${Math.max(0, logoDrop)}px rgba(255,200,60,${mapRange(norm,0,100,0,0.85)}))`;
+
+      // brand name pulse when super bright (>72)
+      if (norm > 72) brandName.classList.add('pulse');
+      else brandName.classList.remove('pulse');
+
+      // tiny hint fade-out as user begins moving slider
+      hint.style.opacity = mapRange(norm,0,24,1,0).toFixed(2);
+
+      // nicely scale lamp slightly at high brightness
+      const lampScale = mapRange(norm,0,100,0.996,1.03);
+      lamp.style.transform = `scale(${lampScale})`;
+    }
+
+    /* ============================================================
+       Event handlers
+       ============================================================ */
+
+    // slider input: main interactive event
+    slider.addEventListener('input', (e) => {
+      const val = Number(e.target.value || 0);
+
+      // update visuals immediately
+      updateVisuals(val);
+
+      // update lastValue
+      // (we use changes to detect small vs large moves for different sounds)
+      const delta = Math.abs(val - lastValue);
+
+      // play short sound - stronger click when larger change
+      if (delta > 18) {
+        tryPlaySound(faintClick);
+      } else {
+        tryPlaySound(switchSound);
+      }
+
+      // play background music the first time the lamp is turned on
+      if (val > 0 && !bgmStarted){
+        bgmStarted = true;
+        // try to play; may be blocked until user interacts — but slider input counts as interaction
+        bgm.play().catch(()=>{ /* ignore */});
+      }
+
+      // pause bgm when lamp is fully turned off
+      if (val === 0 && bgmStarted) {
+        // small fade out could be added; keep simple
+        try { bgm.pause(); } catch(e){}
+        bgmStarted = false;
+      }
+
+      lastValue = val;
+    });
+
+    // We ensure the first user interaction enables audio on mobile
+    // also support clicking the lamp to toggle small on/off (optional)
+    lamp.addEventListener('click', () => {
+      // if lamp is off, set to a default mid value; if on, set to 0
+      let v = Number(slider.value);
+      if (v === 0) {
+        slider.value = 48;
+        updateVisuals(48);
+        tryPlaySound(switchSound);
+        lastValue = 48;
+        if (!bgmStarted) { bgmStarted = true; bgm.play().catch(()=>{}); }
+      } else {
+        slider.value = 0;
+        updateVisuals(0);
+        tryPlaySound(faintClick);
+        lastValue = 0;
+        if (bgmStarted) { bgm.pause(); bgmStarted = false; }
+      }
+    });
+
+    /* Accessibility: keyboard control for slider */
+    slider.addEventListener('keydown', (ev) => {
+      const step = 2; // keyboard step
+      let v = Number(slider.value);
+      if (ev.key === 'ArrowRight' || ev.key === 'ArrowUp') { v = Math.min(100, v + step); slider.value = v; updateVisuals(v); tryPlaySound(switchSound); }
+      if (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown') { v = Math.max(0, v - step); slider.value = v; update
